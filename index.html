@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D 立方體 & AI 聊天</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="container">
+        <!-- 動態線條 canvas -->
+        <canvas id="line-canvas"></canvas>
+        
+        <!-- 立方體容器 -->
+        <div id="cube-container"></div>
+        
+        <!-- AI 聊天界面 (初始隱藏) -->
+        <div id="ai-chat" class="hidden">
+            <div class="chat-header">
+                <h2>AI 聊天</h2>
+                <button id="close-chat">×</button>
+            </div>
+            <div class="input-section">
+                <div class="text-input">
+                    <textarea id="questionInput" placeholder="輸入您想詢問的問題..."></textarea>
+                </div>
+                <button id="submitBtn">發送</button>
+            </div>
+            <div class="result-section">
+                <div id="loadingIndicator" class="hidden">處理中...</div>
+                <div id="resultContent"></div>
+            </div>
+        </div>
+        
+        <!-- 開啟聊天按鈕 -->
+        <button id="toggle-chat" class="chat-toggle">AI</button>
+    </div>
+    
+    <!-- 注意：先載入 twistLine.js -->
+    <script src="js/twistLine.js"></script>
+    <script src="js/script.js"></script>
+    <script src="js/quasar.js"></script>
+</body>
+</html>
