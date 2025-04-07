@@ -1,18 +1,16 @@
-// twistLine.js
+// twistLineStrongRandom.js
 
-// 改為全局函數，而不是導出模組
 function createTwistingLine(canvas, positionCallback) {
   const ctx = canvas.getContext('2d');
   ctx.filter = 'blur(0.3px)';
 
-  let width = canvas.width = canvas.clientWidth || window.innerWidth;
-  let height = canvas.height = canvas.clientHeight || window.innerHeight;
+  let width = canvas.width = canvas.clientWidth;
+  let height = canvas.height = canvas.clientHeight;
 
-  function resize() {
-    width = canvas.width = canvas.clientWidth || window.innerWidth;
-    height = canvas.height = canvas.clientHeight || window.innerHeight;
-  }
-  window.addEventListener('resize', resize);
+  window.addEventListener('resize', () => {
+    width = canvas.width = canvas.clientWidth;
+    height = canvas.height = canvas.clientHeight;
+  });
 
   const points = 1000;
   const speedFactor = 0.2;
@@ -20,16 +18,14 @@ function createTwistingLine(canvas, positionCallback) {
   const gravityOffset = 0;
   const bendIntensity = 87;
 
-  // 線條上的當前位置索引，用於控制立方體沿著線條移動
-  let currentPointIndex = 0; // 從左邊開始
-  // 移動速度：慢一點更容易看到效果
-  let movementSpeed = 0.5;
-  // 移動方向：1 表示向右，-1 表示向左
-  let movementDirection = 1;
-
-  // 保存最新生成的線條
-  let currentLine = [];
-  let currentProjectedLine = [];
+  const twistParams = {
+    freqA: 20 + Math.random() * 120,
+    freqB: 10 + Math.random() * 80,
+    amp: 0.4 + Math.random() * 2.0,
+    shift: Math.random() * Math.PI * 2,
+    basePush: 80 + Math.random() * 180,
+    curlAmp: 60 + Math.random() * 120
+  };
 
   function generate3DLine(offset, breath) {
     const line = [];
@@ -38,7 +34,6 @@ function createTwistingLine(canvas, positionCallback) {
 
     for (let i = -150; i <= points + 150; i++) {
       const t = i / (points - 1);
-
       const knotFactor = Math.sin(t * 100) * Math.cos(t * 20);
       const rhythm = 1 + rhythmAmplitude * Math.sin(offset * 0.5);
 
@@ -48,13 +43,17 @@ function createTwistingLine(canvas, positionCallback) {
       const pushTowardCenter = (leftPull - rightPull) * Math.cos(offset * 2);
 
       const curlEnd = Math.exp(-Math.pow((t - 1.0) * 8, 2));
-      const curlSwing = Math.sin(t * 80 + offset * 10) * curlEnd * 100;
+      const curlSwing = Math.sin(t * 80 + offset * 10) * curlEnd * twistParams.curlAmp;
 
-      const lateralWave = Math.sin(t * 50 + offset * 4) + Math.sin(t * 25 + offset * 2.5);
-      const lateralSwing = (lateralWave * 140 * pushTowardCenter + curlSwing) * centerFocus * knotFactor * breath * rhythm;
+      const lateralWave =
+        Math.sin(t * twistParams.freqA + offset * 4 + twistParams.shift) +
+        Math.sin(t * twistParams.freqB + offset * 2.5);
+
+      const lateralSwing =
+        (lateralWave * twistParams.basePush * pushTowardCenter + curlSwing) *
+        twistParams.amp * centerFocus * knotFactor * breath * rhythm;
 
       const x = t * width + lateralSwing;
-
       const twist = Math.sin(t * 30 + offset * 2) * bendIntensity * 0.3;
       const crossing = Math.sin(t * 60 + offset * 2.5) * 60 * Math.cos(t * 25 + offset * 3);
 
@@ -82,7 +81,6 @@ function createTwistingLine(canvas, positionCallback) {
 
       const cp1x = p1.x + (p2.x - p0.x) / 8;
       const cp1y = p1.y + (p2.y - p0.y) / 8;
-
       const cp2x = p2.x - (p3.x - p1.x) / 8;
       const cp2y = p2.y - (p3.y - p1.y) / 8;
 
@@ -102,9 +100,6 @@ function createTwistingLine(canvas, positionCallback) {
     const breath = 0.8 + 0.2 * Math.sin(time * 2);
 
     const rawLine = generate3DLine(time, breath);
-    // 保存當前生成的線條
-    currentLine = rawLine;
-    
     const projected = rawLine.map(p => {
       const scale = 1 - p.z / 500;
       return {
@@ -112,31 +107,7 @@ function createTwistingLine(canvas, positionCallback) {
         y: p.y * scale
       };
     });
-    
-    // 保存投影後的線條
-    currentProjectedLine = projected;
 
-    // 更新立方體位置索引
-    currentPointIndex += movementSpeed * movementDirection;
-    
-    // 檢查邊界，從左到右，然後重置到左側
-    if (currentPointIndex >= points + 50) {
-      // 到達右邊界時，重置到左邊界
-      currentPointIndex = 0;
-    }
-    
-    // 限制索引範圍，防止越界
-    const safeIndex = Math.max(0, Math.min(Math.floor(currentPointIndex), projected.length - 1));
-
-    // 如果傳入了回調函數，則將當前索引點的坐標傳回
-    if (typeof positionCallback === 'function' && projected.length > safeIndex) {
-      const trackPoint = projected[safeIndex];
-      if (trackPoint && typeof trackPoint.x === 'number' && typeof trackPoint.y === 'number') {
-        positionCallback(trackPoint.x, trackPoint.y, safeIndex);
-      }
-    }
-
-    // 繪製線條
     const curves = catmullRomToBezier(projected);
 
     ctx.beginPath();
@@ -149,46 +120,30 @@ function createTwistingLine(canvas, positionCallback) {
       );
     }
 
-    // 將線條寬度修改為 0.5px，使其更明顯
     ctx.strokeStyle = '#000000';
     ctx.lineWidth = 0.5;
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
     ctx.stroke();
+    
+    // 如果提供了位置回調函數，調用它並傳遞中間點的坐標
+    if (typeof positionCallback === 'function') {
+      const midPointIndex = Math.floor(projected.length / 2);
+      if (projected[midPointIndex]) {
+        positionCallback(projected[midPointIndex].x, projected[midPointIndex].y, midPointIndex);
+      }
+    }
 
     requestAnimationFrame(draw);
   }
 
-  // 立即啟動動畫
   draw();
   
-  // 返回一個控制物件，可以用來停止或重啟動畫，以及獲取線條數據
+  // 返回控制對象
   return {
-    start: draw,
-    isActive: true,
-    // 獲取當前的線條點
-    getLinePoints: function() {
-      return currentLine;
+    stop: () => {
+      // 可以在這裡添加停止動畫的邏輯
     },
-    // 獲取當前的投影線條點
-    getProjectedLinePoints: function() {
-      return currentProjectedLine;
-    },
-    // 獲取當前使用的點索引
-    getCurrentIndex: function() {
-      return currentPointIndex;
-    },
-    // 設置移動方向
-    setDirection: function(direction) {
-      if (direction === 'left') {
-        movementDirection = -1;
-      } else if (direction === 'right') {
-        movementDirection = 1;
-      }
-    },
-    // 設置移動速度
-    setSpeed: function(speed) {
-      if (typeof speed === 'number' && speed > 0) {
-        movementSpeed = speed;
-      }
-    }
+    getPoints: () => projected
   };
 }
